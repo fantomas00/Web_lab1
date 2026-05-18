@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <title>TicTacToe -- Socket Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #fafafa; }
+        #log { background: #f4f4f4; padding: 10px; height: 200px; overflow-y: scroll; border: 1px solid #ccc; list-style-type: none; }
+        #log li { padding: 4px 0; border-bottom: 1px dashed #ddd; }
+        .inputs { margin-bottom: 15px; }
+        input { padding: 6px; width: 150px; }
+        button { padding: 6px 12px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h2>TicTacToe (Хрестики-Нолики) -- WebSocket Test</h2>
+    
+    <div class="inputs">
+        <input type="number" id="gameIdInput" placeholder="Enter Game ID" value="1">
+        <button onclick="connectToGame()">Connect to Game</button>
+    </div>
+
+    <div class="inputs">
+        <input type="number" id="positionInput" placeholder="Cell Position (0-8)" min="0" max="8">
+        <button onclick="sendMove()">Make Move!</button>
+    </div>
+
+    <h3>Game History & Logs:</h3>
+    <ul id="log"></ul>
+
+    <script>
+        let socket = null;
+
+        function addLog(text) {
+            const log = document.getElementById('log');
+            const newLi = document.createElement('li');
+            newLi.textContent = text;
+            log.appendChild(newLi);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function connectToGame() {
+            const gameId = document.getElementById('gameIdInput').value;
+            if (!gameId) {
+                alert("Please enter Game ID");
+                return;
+            }
+
+            if (socket) { socket.close(); }
+
+            socket = new WebSocket(`ws://127.0.0.1:8000/ws/game/${gameId}/`);
+
+            socket.onopen = function(e) {
+                addLog(`Connected to Game #${gameId} successfully!`);
+            };
+
+            socket.onmessage = function(e) {
+                const data = JSON.parse(e.data);
+                if (data.message) {
+                    addLog(`[SERVER]: ${data.message}`);
+                } else if (data.board) {
+                    addLog(`[BOARD UPDATE]: ${data.board}`);
+                } else {
+                    addLog(`[DATA]: ${JSON.stringify(data)}`);
+                }
+            };
+
+            socket.onerror = function(e) { addLog("[ERROR]: WebSocket connection failed."); };
+            socket.onclose = function(e) { addLog(`[DISCONNECTED]: Closed connection for Game #${gameId}`); };
+        }
+
+        function sendMove() {
+            if (!socket || socket.readyState !== WebSocket.OPEN) {
+                alert("Please connect to a game first!");
+                return;
+            }
+
+            const input = document.getElementById('positionInput');
+            const pos = input.value;
+            if (pos === '') return;
+
+            socket.send(JSON.stringify({
+                'position': parseInt(pos)
+            }));
+            
+            addLog(`[YOU]: Sent move to position ${pos}`);
+            input.value = ''; 
+        }
+    </script>
+</body>
+</html>
